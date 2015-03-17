@@ -1,6 +1,6 @@
 ################################################################################
 ################################################################################
-#Field work 2014
+#withinPIS code
 ################################################################################
 ################################################################################
 
@@ -8,6 +8,11 @@
 library(maptools)
 library(rgdal)
 library(OpenStreetMap)
+
+
+################################################################################
+#loading GIS layers
+################################################################################
 
 #setting the path to the datasets
 setwd("~/work/Rfichiers/Githuber/withinPIS_data")
@@ -64,3 +69,44 @@ plot(raster294)
 plot(patchshape[patchshape[[3]] %in% selecpatch[,1],1],col="blue",lty=0,add=TRUE)
 
 
+################################################################################
+#loading survey data
+################################################################################
+
+#loading patches informations
+patche_info<-read.table("coord_all_patch12.txt", header=TRUE, sep="\t", dec=".")
+#we reorganize the coord data file
+patche_info<-patche_info[,c(1:12,14:dim(patche_info)[2])]
+points(patche_info$Longitude,patche_info$Latitude,cex=1,bg="white",pch=21)
+
+#loading the sample information data
+sample_info<-read.table("sample_info4.txt", header=TRUE, sep="\t", dec=".")
+
+#loading genotypes data
+geno_hom<-read.table("geno_hom10_13.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
+geno_hom<-merge(geno_hom,sample_info,by.x="UNIC_ID",by.y="FIMM_ID")
+geno_hom<-merge(geno_hom,patche_info,by.x="patche_ID",by.y="ID",all.x=TRUE)
+geno_hom<-replace(geno_hom,geno_hom=="CA","AC")
+geno_hom<-replace(geno_hom,geno_hom=="GA","AG")
+geno_hom<-replace(geno_hom,geno_hom=="TA","AT")
+geno_hom<-replace(geno_hom,geno_hom=="GC","CG")
+geno_hom<-replace(geno_hom,geno_hom=="TC","CT")
+geno_hom<-replace(geno_hom,geno_hom=="TG","GT")
+geno_hom<-droplevels(geno_hom)
+
+
+################################################################################
+#adding the MLG column
+################################################################################
+
+#we add a column with the multilocus genotype (MLG)
+MLG<-geno_hom
+MLG<-replace(MLG,MLG=="AA",1)
+MLG<-replace(MLG,MLG=="CC",2)
+MLG<-replace(MLG,MLG=="GG",3)
+MLG<-replace(MLG,MLG=="TT",4)
+MLGmat<-vector()
+nb_SNP<- 19 #the number of markers used
+name_SNP<-dimnames(geno_hom)[[2]][3:(nb_SNP+3-1)]
+for (i in 3:(nb_SNP+3-1)) MLGmat<-paste(MLGmat,MLG[,i],sep="/")
+geno_hom<-data.frame(geno_hom,"MLG"=MLGmat,stringsAsFactors=FALSE)
