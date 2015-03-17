@@ -118,43 +118,44 @@ dataPIS<-droplevels(dataPIS)
 #Do "coinfection genotypes" correspond to a mix between existing MLG?
 ################################################################################
 
-#first we split potential "mix partner" and mixed genotypes
+#first we split potential "pure" genotype and mixed genotypes
 singlePIS<-dataPIS[dataPIS$nb_snp_het==0 & dataPIS$nb_missing==0,]
-mixedPIS<-dataPIS[dataPIS$nb_snp_het==0 & dataPIS$nb_snp_het>0,]
+mixedPIS<-dataPIS[dataPIS$nb_missing==0 & dataPIS$nb_snp_het>0,]
 
-#function that combines genotypes, for internal use of listgenomix function. geno1 and geno2 are the two 
-#genotype to combine
+#function that combines genotypes, for internal use of listgenomix function. 
+#geno1 and geno2 are the two genotypes to combine
 mimicmix<-function(geno1,geno2){
   comb<-c()
-  for (i in 6:(6+nb_SNP-1)) {
+  for (i in 3:(3+nb_SNP-1)) {
     temp<-paste(substr(geno1[i],1,1),substr(geno2[i],1,1),sep="")
     comb<-data.frame(cbind(comb,temp,stringsAsFactors = FALSE))
   }
   return(comb)
 }
 
-#function which creates the electronical compound genotypes matrix, for each patch. Input file is a "parent" dataset
+#function which creates the potential compound genotypes matrix, for each 
+#patch. Input file is a "pure" genotypes dataset
 listgenomix<-function(parent) {
   combi<-c()
-  listPATCH<-table(parent$PATCH)
+  listPATCH<-table(parent$patche_ID)
   for (k in 1:length(listPATCH)) {
-    parentsub<-parent[parent$PATCH==dimnames(listPATCH)[[1]][k],]
+    parentsub<-parent[parent$patche_ID==dimnames(listPATCH)[[1]][k],]
     parentsub<-parentsub[!duplicated(parentsub$MLG),] 
     comb1<-c()
     if (dim(parentsub)[1]==1) {
-      comb1<-cbind(parentsub$PATCH[1],"single.parent",parentsub[1,6:(6+nb_SNP-1)])
+      comb1<-cbind(parentsub$patche_ID[1],"single.parent",parentsub[1,3:(3+nb_SNP-1)])
     } else {
       temp<-c()
       for (i in 1:(dim(parentsub)[1]-1)) {
         for (j in ((i+1):(dim(parentsub)[1]))) {
-          temp<-cbind(parentsub$PATCH[1],paste("combgeno",i,"_",j,sep=""),
+          temp<-cbind(parentsub$patche_ID[1],paste("combgeno",i,"_",j,sep=""),
                       mimicmix(parentsub[i,],parentsub[j,]))
           comb1<-rbind(comb1,temp)
         }
       }
       comb1<-comb1[,-4]
     }
-    dimnames(comb1)[[2]]<-c("PATCH","GENOMIX",name_SNP)
+    dimnames(comb1)[[2]]<-c("patche_ID","parents_ID",name_SNP)
     combi<-rbind(combi,comb1)
     combi<-as.data.frame(combi,stringsAsFactors=FALSE)
     combi<-replace(combi,combi=="CA","AC")
@@ -167,27 +168,27 @@ listgenomix<-function(parent) {
   return(combi)
 }
 
-mixpot2010<-listgenomix(parent2010)
-mixpot2011<-listgenomix(parent2011)
+mixpotPIS<-listgenomix(singlePIS)
 
 
-#this function compare each observed mixed genotype to a set of potential mixed genotype resulting from 
-#the combination of (see function listgenomix). Input data are a dataframe of the observed mixed genotype 
-#and a dataframe of potential mixed genotype (output of the function listgenomix). The output is the same 
-#dataframe of observed mixed genotype with 3 supplementary columns which are the name of potential 
-#combination of 
+#this function compare each observed mixed genotype to a set of potential mixed
+#genotype resulting from the combination of the "pure" genotypes (see function 
+#listgenomix). Input data are a dataframe of the observed mixed genotype and a 
+#dataframe of potential mixed genotype (output of the function listgenomix). 
+#The output is the same dataframe of observed mixed genotype with 3 
+#supplementary columns which are the name of potential combination of 
 compmix<-function(mix,mixpot){
   probacol<-c()
   for (k in 1:dim(mix)[1]) {
     pach<-mix[k,1]
-    mixpotsub<-mixpot[mixpot$PATCH==pach,]
+    mixpotsub<-mixpot[mixpot$patche_ID==pach,]
     if (dim(mixpotsub)[1]==0) {
       proba<-c("no_pot",NA,NA)
     } else {
       qqq<-c()
       for (i in 1:dim(mixpotsub)[1]) {
         val<-c()
-        for (j in 6:(6+nb_SNP-1)) {
+        for (j in 3:(3+nb_SNP-1)) {
           if (is.na(mix[k,j])) {
             qq<-0.9      #penalty value if no genotype call in the observed mixed individual
           } else { ifelse (mix[k,j]==mixpotsub[i,j-3],qq<-1,qq<-0) #no penalty (=1) if genotype call 
@@ -215,8 +216,8 @@ compmix<-function(mix,mixpot){
   return(mix)
 }
 
-compmix2010<-compmix(mix2010,mixpot2010)
-compmix2011<-compmix(mix2011,mixpot2011)
+identimixPIS<-compmix(mixedPIS,mixpotPIS)
+
 
 
 
