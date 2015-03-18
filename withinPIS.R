@@ -112,6 +112,7 @@ geno_hom<-data.frame(geno_hom,"MLG"=MLGmat,stringsAsFactors=FALSE)
 #restrict the dataset to the 15 selected patches
 dataPIS<-geno_hom[geno_hom$patche_ID %in% selecpatch[,1],]
 dataPIS<-droplevels(dataPIS)
+dataPISclean<-dataPIS[dataPIS$nb_missing==0,]
 
 
 ################################################################################
@@ -143,19 +144,20 @@ listgenomix<-function(parent) {
     parentsub<-parentsub[!duplicated(parentsub$MLG),] 
     comb1<-c()
     if (dim(parentsub)[1]==1) {
-      comb1<-cbind(parentsub$patche_ID[1],"single.parent",parentsub[1,3:(3+nb_SNP-1)])
+      comb1<-cbind(parentsub$patche_ID[1],"single.parent","single.parent",
+                   parentsub[1,3:(3+nb_SNP-1)])
     } else {
       temp<-c()
       for (i in 1:(dim(parentsub)[1]-1)) {
         for (j in ((i+1):(dim(parentsub)[1]))) {
-          temp<-cbind(parentsub$patche_ID[1],paste("combgeno",i,"_",j,sep=""),
+          temp<-cbind(parentsub$patche_ID[1],parentsub$MLG[i],parentsub$MLG[j],
                       mimicmix(parentsub[i,],parentsub[j,]))
           comb1<-rbind(comb1,temp)
         }
       }
-      comb1<-comb1[,-4]
+      comb1<-comb1[,-5]
     }
-    dimnames(comb1)[[2]]<-c("patche_ID","parents_ID",name_SNP)
+    dimnames(comb1)[[2]]<-c("patche_ID","parent1_ID","parent2_ID",name_SNP)
     combi<-rbind(combi,comb1)
     combi<-as.data.frame(combi,stringsAsFactors=FALSE)
     combi<-replace(combi,combi=="CA","AC")
@@ -165,10 +167,22 @@ listgenomix<-function(parent) {
     combi<-replace(combi,combi=="TC","CT")
     combi<-replace(combi,combi=="TG","GT")
   }
+  combi[,4]<-as.character(combi[,4])
   return(combi)
 }
 
 mixpotPIS<-listgenomix(singlePIS)
+
+MLG<-mixpotPIS
+MLG<-replace(MLG,MLG=="AA",1)
+MLG<-replace(MLG,MLG=="CC",2)
+MLG<-replace(MLG,MLG=="GG",3)
+MLG<-replace(MLG,MLG=="TT",4)
+MLGmat<-vector()
+nb_SNP<- 19 #the number of markers used
+name_SNP<-dimnames(mixpotPIS)[[2]][4:(nb_SNP+4-1)]
+for (i in 4:(nb_SNP+4-1)) MLGmat<-paste(MLGmat,MLG[,i],sep="/")
+mixpotPIS<-data.frame(mixpotPIS,"MLG"=MLGmat,stringsAsFactors=FALSE)
 
 
 #this function compare each observed mixed genotype to a set of potential mixed
@@ -176,50 +190,34 @@ mixpotPIS<-listgenomix(singlePIS)
 #listgenomix). Input data are a dataframe of the observed mixed genotype and a 
 #dataframe of potential mixed genotype (output of the function listgenomix). 
 #The output is the same dataframe of observed mixed genotype with 3 
-#supplementary columns which are the name of potential combination of 
+#supplementary columns
 compmix<-function(mix,mixpot){
-  probacol<-c()
+  genealo<-c()
   for (k in 1:dim(mix)[1]) {
     pach<-mix[k,1]
     mixpotsub<-mixpot[mixpot$patche_ID==pach,]
     if (dim(mixpotsub)[1]==0) {
       proba<-c("no_pot",NA,NA)
     } else {
-      qqq<-c()
-      for (i in 1:dim(mixpotsub)[1]) {
-        val<-c()
-        for (j in 3:(3+nb_SNP-1)) {
-          if (is.na(mix[k,j])) {
-            qq<-0.9      #penalty value if no genotype call in the observed mixed individual
-          } else { ifelse (mix[k,j]==mixpotsub[i,j-3],qq<-1,qq<-0) #no penalty (=1) if genotype call 
-                   #of the observed mixed individual 
-                   #is identical to the electonically 
-                   #mixed genotype created by combining 
-                   #potential "parent" genotype. If 
-                   #there is a discrepancy between 
-                   #observed and simulated mixed 
-                   #genotype, then the penalty score 
-                   #is set to 0
-          }
-          val<-c(val,qq)
-        }
-        qqq<-rbind(qqq,val)
+      temp<-c(which(mixedPIS$MLG[k]==mixpotsub$MLG))
+      if (length(temp)<1) {
+        proba<-c(0,NA,NA)
+      } else {
+        proba<-c(1,as.character(mixpotsub$parent1_ID[temp]),
+                 as.character(mixpotsub$parent2_ID[temp]))
       }
-      proba<-cbind(apply(qqq,1,prod),apply(qqq,1,sum))
-      proba<-c(as.character(mixpotsub[(which(proba==max(proba),arr.ind=TRUE)[1]),2]),
-               proba[which(proba==max(proba),arr.ind=TRUE)[1],])
     }
-    probacol<-rbind(probacol,proba)
+    genealo<-rbind(genealo,proba)
   }
-  dimnames(probacol)[[2]]<-c("Combine_ID","proba_prod","proba_sum")
-  mix<-cbind(mix,probacol)
+  dimnames(genealo)[[2]]<-c("candidate","MLG_parent1","MLG_parent2")
+  mix<-cbind(mix,genealo)
   return(mix)
 }
 
 identimixPIS<-compmix(mixedPIS,mixpotPIS)
 
 
-
+write.table(identimixPIS,file="genealogi.txt",row.names=FALSE,sep="\t",quote=FALSE)
 
 
 
