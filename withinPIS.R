@@ -58,14 +58,16 @@ rasterAlandmap<-openmap(c(60.4592491336415,19.45404052734375),
                         type="bing",minNumTiles=16,zoom=11)
 plot(rasterAlandmap)
 plot(patchshape.osm,col="red",lty=0,add=TRUE)
-plot(patchshape.osm[patchshape.osm[[3]] %in% selecpatch[,1],1],col="blue",lty=0,add=TRUE)
+plot(patchshape.osm[patchshape.osm[[3]] %in% selecpatch[,1],1],col="blue",lty=0,
+     add=TRUE)
 
 #example for the patch 294
 raster294<-openmap(c(60.15604096042903,19.704923629760742),
                    c(60.152912102694046,19.713034629821777),
                    type="esri-topo",minNumTiles=16,zoom=17)
 plot(raster294)
-plot(patchshape.osm[patchshape.osm[[3]] %in% selecpatch[,1],1],col="blue",lty=0,add=TRUE)
+plot(patchshape.osm[patchshape.osm[[3]] %in% selecpatch[,1],1],col="blue",lty=0,
+     add=TRUE)
 
 #plotting only one patch at a time 
 plot(patchshape[patchshape[[3]] %in% selecpatch[1,1],1],col="white",lty=1)
@@ -217,7 +219,8 @@ compmix<-function(mix,mixpot){
 identimixPIS<-compmix(mixedPIS,mixpotPIS)
 
 
-write.table(identimixPIS,file="genealogi.txt",row.names=FALSE,sep="\t",quote=FALSE)
+write.table(identimixPIS,file="genealogi.txt",row.names=FALSE,sep="\t",
+            quote=FALSE)
 
 
 
