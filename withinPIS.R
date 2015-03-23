@@ -8,7 +8,7 @@
 library(maptools)
 library(rgdal)
 library(OpenStreetMap)
-library(mapplots)
+#library(mapplots) #for add.pie() to add pie chart on a map
 
 #setting the path to the datasets
 setwd("~/work/Rfichiers/Githuber/withinPIS_data")
@@ -87,6 +87,9 @@ points(patch_info$Longitude,patch_info$Latitude,cex=1,bg="white",pch=21)
 
 #loading the sample information data
 sample_info<-read.table("sample_info5.txt", header=TRUE, sep="\t", dec=".")
+
+#loading the infection date of the samples
+infect_date<-read.table("infection_date.txt", header=TRUE, sep="\t")
 
 #loading genotypes data
 #geno_hom<-read.table("GEN_14.txt",header=TRUE,sep="\t",stringsAsFactors=FALSE)
@@ -221,21 +224,24 @@ compmix<-function(mix,mixpot){
 identimixPIS<-compmix(mixedPIS,mixpotPIS)
 
 #building the final file for plotting
-dataplot<-identimixPIS[,c("patche_ID","UNIC_ID","Earthcape_Plant_Code","long_plant",
-                      "lat_plant","MLG","knownparent","MLG_parent1",
-                      "MLG_parent2")]
+dataplot<-identimixPIS[,c("patche_ID","UNIC_ID","sample_ID","Earthcape_Plant_Code",
+                          "long_plant","lat_plant","survey","MLG","knownparent",
+                          "MLG_parent1","MLG_parent2")]
 dataplot$MLG_parent1<-as.character(dataplot$MLG_parent1)
 dataplot$MLG_parent2<-as.character(dataplot$MLG_parent2)
 dataplot[is.na(dataplot$MLG_parent1),"MLG_parent1"]<-dataplot$MLG[is.na(dataplot$MLG_parent1)]
 dataplot[is.na(dataplot$MLG_parent2),"MLG_parent2"]<-dataplot$MLG[is.na(dataplot$MLG_parent2)]
 
-temp2<-singlePIS[,c("patche_ID","UNIC_ID","Earthcape_Plant_Code","long_plant",
-                    "lat_plant","MLG")]
+temp2<-singlePIS[,c("patche_ID","UNIC_ID","sample_ID","Earthcape_Plant_Code",
+                    "long_plant","lat_plant","survey","MLG")]
 temp2<-cbind(temp2,"knownparent"=1,"MLG_parent1"=temp2$MLG,
              "MLG_parent2"=temp2$MLG,stringsAsFactors=FALSE)
 
 dataplot<-rbind(dataplot,temp2)
-
+#we remove samples from the general survey
+dataplot<-dataplot[dataplot$survey=="Intensive",]
+#we add the information on the date of first observation of symptoms
+dataplot<-merge(dataplot,infect_date,by="sample_ID",all.x=TRUE)
 
 #plot of all the MLG at the same time
 fsele<-1047
@@ -246,24 +252,56 @@ levels(temp2)<-rainbow(nb_distinc_MLG)
 temp$MLG_parent1<-temp2[1:(length(temp2)/2)]
 temp$MLG_parent2<-temp2[(1+length(temp2)/2):(length(temp2))]
 
-plot(patchshape[patchshape[[3]]==fsele,1],col="white",lty=1)
+plot(temp$long_plant,temp$lat_plant,cex=1,pch=1,col="white",
+     asp=1,bty="n",axes=FALSE,ann=FALSE)
+plot(patchshape[patchshape[[3]]==fsele,1],col="grey85",lty=0,add=TRUE)
 points(temp$long_plant[temp$knownparent==1],
-       temp$lat_plant[temp$knownparent==1],cex=0.9,pch=19,
+       temp$lat_plant[temp$knownparent==1],cex=0.9,pch=1,
        col=as.character(temp$MLG_parent1[temp$knownparent==1]))
 points(temp$long_plant[temp$knownparent==1],
-       temp$lat_plant[temp$knownparent==1],cex=0.4,pch=19,
+       temp$lat_plant[temp$knownparent==1],cex=0.4,pch=1,
        col=as.character(temp$MLG_parent2[temp$knownparent==1]))
 points(temp$long_plant[temp$knownparent==0],
-       temp$lat_plant[temp$knownparent==0],cex=0.9,pch=17,
+       temp$lat_plant[temp$knownparent==0],cex=0.9,pch=2,
        col=as.character(temp$MLG_parent1[temp$knownparent==0]))
 points(temp$long_plant[temp$knownparent==0],
-       temp$lat_plant[temp$knownparent==0],cex=0.4,pch=17,
+       temp$lat_plant[temp$knownparent==0],cex=0.4,pch=2,
        col=as.character(temp$MLG_parent2[temp$knownparent==0]))
+title(main=fsele)
 
 
+#plot of the sequence of infection or infection development
+fsele<-selecpatch[15,1]
+intermed<-dataplot[dataplot$patche_ID==fsele,]
+temp2<-as.factor(c(intermed$MLG_parent1,intermed$MLG_parent2))
+nb_distinc_MLG<-length(levels(temp2))
+levels(temp2)<-rainbow(nb_distinc_MLG)
+intermed$MLG_parent1<-temp2[1:(length(temp2)/2)]
+intermed$MLG_parent2<-temp2[(1+length(temp2)/2):(length(temp2))]
 
+op<-par(mfrow=c(1,max(intermed$infect_date,na.rm=TRUE)))
 
+for (i in 1:max(intermed$infect_date,na.rm=TRUE)){
+  plot(intermed$long_plant,intermed$lat_plant,cex=1,pch=1,col="white",
+       asp=1,bty="n",axes=FALSE,ann=FALSE)
+  plot(patchshape[patchshape[[3]]==fsele,1],col="grey85",lty=0,add=TRUE)
+  temp<-intermed[intermed$infect_date<i+1,]
+  points(temp$long_plant[temp$knownparent==1],
+         temp$lat_plant[temp$knownparent==1],cex=2,pch=1,
+         col=as.character(temp$MLG_parent1[temp$knownparent==1]))
+  points(temp$long_plant[temp$knownparent==1],
+         temp$lat_plant[temp$knownparent==1],cex=1,pch=1,
+         col=as.character(temp$MLG_parent2[temp$knownparent==1]))
+  points(temp$long_plant[temp$knownparent==0],
+         temp$lat_plant[temp$knownparent==0],cex=2,pch=2,
+         col=as.character(temp$MLG_parent1[temp$knownparent==0]))
+  points(temp$long_plant[temp$knownparent==0],
+         temp$lat_plant[temp$knownparent==0],cex=1,pch=2,
+         col=as.character(temp$MLG_parent2[temp$knownparent==0]))
+  title(main=paste(fsele,"-",i))
+}
 
+par(op)
 
 
 
