@@ -305,3 +305,50 @@ par(op)
 
 
 
+################################################################################
+#exploring the epidemiological data
+################################################################################
+
+
+op<-par(mfrow=c(3,5))
+for (j in 1:dim(selecpatch)[1]){
+  #first we select a patch
+  fsele<-selecpatch[j,1]
+  #load data table
+  temp<-read.table(paste(fsele,".epidem",sep=""),header=TRUE,sep="\t")
+  #determing the number of surveyed dates
+  nb_date<-(dim(temp)[2]-3)/5
+  #we replace missing data by 0, the hypothesis is no data = no infection
+  for (i in 1:nb_date) {
+    temp[is.na(temp[,i*5-1]),i*5-1]<-0
+  }
+  
+  #we build the datafile, here it is the plantago coverage time the percentage
+  #of infection
+  datapercircle<-temp[,1:3]
+  for (i in 1:nb_date) {
+    datapercircle<-cbind(datapercircle,temp[,i*5-1]*temp[,i*5]/100)
+    colnames(datapercircle)[i+3]<-paste("inf date",i)
+  }
+  
+  #plotting the evolution of the infection in the circles and the mean at 
+  #the patch level
+  maxrange<-max(datapercircle[,4:(4+nb_date-1)],na.rm=TRUE)
+  plot(t(datapercircle[1,4:(4+nb_date-1)]),type="l",ylim=c(0,maxrange+0.1),
+       ylab="Disease intensity",xlab="Survey Date")
+  for (i in (2:dim(datapercircle)[1])) {
+    lines(t(datapercircle[i,4:(4+nb_date-1)]),type="l")
+  }
+  lines(colMeans(datapercircle[,4:(4+nb_date-1)],na.rm=TRUE,dims=1),
+        type="l",col="blue",lwd=3)
+  title(paste("patch",fsele))
+  
+}
+
+par(op)
+
+
+
+
+
+
